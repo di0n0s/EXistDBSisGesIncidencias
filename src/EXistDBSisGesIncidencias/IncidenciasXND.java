@@ -5,7 +5,9 @@
  */
 package EXistDBSisGesIncidencias;
 
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import javax.xml.transform.OutputKeys;
 import org.w3c.dom.Node;
@@ -43,8 +45,8 @@ public class IncidenciasXND {
 
     }
     
-    //Insertar empleado
-    public void insertarEmpleado(Empleado e1) throws XMLDBException {
+    //4A. Insertar un empleado nuevo en la B.D.
+    public boolean insertarEmpleado(Empleado e1) throws XMLDBException {
         String insert = "update insert <Empleado>"
                 + "<username>" + e1.getUsername() + "</username>"
                 + "<password>" + e1.getPassword() + "</password>"
@@ -52,11 +54,115 @@ public class IncidenciasXND {
                 + "<telefono>" + e1.getTelefono() + "</telefono>"
                 + "</Empleado> into /Empleados";
         ejecutarUpdate(COLECCEMPLEADOS, insert);
-
+        return true;
     }
     
-    //Insertar una incidencia a partir de un objeto Incidencia
-    public void insertarIncidencia(Incidencia i) throws XMLDBException {
+  
+    
+    //4C. Modificar perfil de un empleado existente (FUNCIONA)
+    public boolean modificarEmpleado (Empleado e1, Empleado e2) throws XMLDBException{
+        String updatePass = "update replace /Empleados/Empleado "
+                + "[username=\'"+e1.getUsername()+"'] "
+                + "/password with <password>"+e2.getPassword()+"</password>";
+        ejecutarUpdate(COLECCEMPLEADOS, updatePass);
+        String updateNombre = "update replace /Empleados/Empleado "
+                + "[username=\'"+e1.getUsername()+"'] "
+                + "/nombre_completo with <nombre_completo>"+e2.getNombreCompleto()+"</nombre_completo>";
+        ejecutarUpdate(COLECCEMPLEADOS, updateNombre);
+        String updateTelefono = "update replace /Empleados/Empleado "
+                + "[username=\'"+e1.getUsername()+"'] "
+                + "/telefono with <telefono>"+e2.getTelefono()+"</telefono>";
+        ejecutarUpdate(COLECCEMPLEADOS, updateTelefono);      
+        return true;
+    }
+    
+    //4D. Cambiar contraseña de un empleado existente (FUNCIONA)
+    public boolean modificarPassword(Empleado e1, Empleado e2) throws XMLDBException{
+        String updatePass = "update replace /Empleados/Empleado "
+        + "[username=\'"+e1.getUsername()+"'] "
+        + "/password with <password>"+e2.getPassword()+"</password>";
+        ejecutarUpdate(COLECCEMPLEADOS, updatePass);
+        return true;
+    }
+    
+    //4B. Validar la entrada de un empleado (suministrando usuario y contraseña) (FUNCIONA)(CON SUBMÉTODO)
+    public boolean validarEmpleado (Empleado e) throws XMLDBException{
+        String consulta = "for $e in //Empleados/Empleado "
+                + "let $user := $e/username let $pass := $e/password "
+                + "where $user ='"+e.getUsername()+"' and $pass ='"+e.getPassword()+"' "
+                + "return $e";
+        ResourceSet resultado = ejecutarQuery(COLECCEMPLEADOS, consulta);
+        if(resultado.getSize()>0){
+            System.out.println("Empleado validado");
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd-hh:mm:ss:SS"); //Indicamos como queremos que se muestre la fecha y hora
+            Date ahoramismo = new Date(); //Creamos un new Date para la fecha y hora actual
+            String fechaHoraenTexto = sdf.format(ahoramismo); //Creamos un string indicando al sdf que mofique el formato del dato
+            Historial h = new Historial("I", fechaHoraenTexto, e);   
+            String insert = "update insert <historial>"
+                + "<tipo_evento>" + h.getTipoEvento()+ "</tipo_evento>"
+                + "<fecha_hora>" + h.getFechaHora() + "</fecha_hora>"
+                + "<username>" + h.getUsername().getUsername() + "</username>"
+                + "</historial> into /Historial";
+            ejecutarUpdate(COLECCHISTORIAL, insert);
+            System.out.println("--Se ha insertado en el historial ESTA validación del usuario: '"+e.getUsername()+"'--");            
+            return true;
+        } else {
+            System.out.println("El empleado "+e.getUsername()+" no existe en la BDOO");
+            return false;  
+        }
+            
+    }
+    
+    //4E. Eliminar un empleado (FUNCIONA)
+    public boolean eliminarEmpleado (Empleado e) throws XMLDBException{
+        String delete = "update delete /Empleados/Empleado "
+        + "[username=\'"+e.getUsername()+"']";
+        ejecutarUpdate(COLECCEMPLEADOS, delete);
+        return true;
+    }
+
+    //5A. Obtener un objeto Incidencia a partir de su Id. (FUNCIONA)
+    public List<Incidencia> getIncidenciaByID (int id) throws XMLDBException{
+        String consulta = "for $i in //Incidencias/Incidencia "
+                + "let $incidencia := $i/id_incidencia "
+                + "where $incidencia ='"+id+"' "
+                + "return $i";
+        ResourceSet resultado = ejecutarQuery(COLECCINCIDENCIAS, consulta);
+        ResourceIterator it = resultado.getIterator(); //Recorrer la consulta
+        List<Incidencia> laIncidencia = new ArrayList<>();
+        while(it.hasMoreResources()){
+            XMLResource resource = (XMLResource) it.nextResource();
+            Node nodo = (Node) resource.getContentAsDOM(); //Tenemos que leer el resultado con DOM
+            NodeList barra = nodo.getChildNodes(); //Leemos la lista de los hijos
+            NodeList hijo = barra.item(0).getChildNodes(); //3 niveles(nodo/hijo) para leer la entidad
+            Incidencia i = leerDomIncidencia(hijo);
+            laIncidencia.add(i);
+        }
+        return laIncidencia;
+        
+    }
+    
+    //5B. Obtener la lista de todas las incidencias (FUNCIONA)
+    public List<Incidencia> getAllIncidencias() throws XMLDBException{
+        String consulta = "for $i in //Incidencias/Incidencia "
+                + "return $i";
+        ResourceSet resultado = ejecutarQuery(COLECCINCIDENCIAS, consulta);
+        ResourceIterator it = resultado.getIterator(); //Recorrer la consulta
+        List<Incidencia> todasLasIncidencias = new ArrayList<>();
+        while(it.hasMoreResources()){
+            XMLResource resource = (XMLResource) it.nextResource();
+            Node nodo = (Node) resource.getContentAsDOM(); //Tenemos que leer el resultado con DOM
+            NodeList barra = nodo.getChildNodes(); //Leemos la lista de los hijos
+            NodeList hijo = barra.item(0).getChildNodes(); //3 niveles(nodo/hijo) para leer la entidad
+            Incidencia i = leerDomIncidencia(hijo);
+            todasLasIncidencias.add(i);
+        }
+        return todasLasIncidencias;
+        
+    }    
+    
+    //5C. Insertar una incidencia a partir de un objeto de clase Incidencia (FUNCIONA)(CON SUBMÉTODO)
+    public boolean insertarIncidencia(Incidencia i) throws XMLDBException {
         String insert = "update insert <Incidencia>"
                 + "<id_incidencia>" + i.getIdIncidencia()+ "</id_incidencia>"
                 + "<fecha_hora>" + i.getFechaHora() + "</fecha_hora>"
@@ -65,34 +171,61 @@ public class IncidenciasXND {
                 + "<tipo>"+i.getTipo()+"</tipo>"
                 + "<detalle>"+i.getDetalle()+"</detalle>"
                 + "</Incidencia> into /Incidencias";
+        if(i.getTipo()=="Urgente"){
+            System.out.println("Se ha insertado una Incidencia Urgente!");
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd-hh:mm:ss:SS"); //Indicamos como queremos que se muestre la fecha y hora
+            Date ahoramismo = new Date(); //Creamos un new Date para la fecha y hora actual
+            String fechaHoraenTexto = sdf.format(ahoramismo); //Creamos un string indicando al sdf que mofique el formato del dato
+            Historial h = new Historial("U", fechaHoraenTexto, i.getOrigen());
+            String insertH = "update insert <historial>"
+                + "<tipo_evento>" + h.getTipoEvento()+ "</tipo_evento>"
+                + "<fecha_hora>" + h.getFechaHora() + "</fecha_hora>"
+                + "<username>" + h.getUsername().getUsername() + "</username>"
+                + "</historial> into /Historial";
+            ejecutarUpdate(COLECCHISTORIAL, insertH);
+            System.out.println("--Se ha insertado en el historial ESTA incidencia Urgente: '"+i+"'--");                
+        }
         ejecutarUpdate(COLECCINCIDENCIAS, insert);
-
-    }    
+        return true;
+    }  
     
-    //Modificar perfil de un empleado existente
-    public void modificarEmpleado (Empleado e1, Empleado e2) throws XMLDBException{
-        String updatePass = "update replace /Empleados/Empleado"
-                + "[username=\'"+e1.getUsername()+"']"
-                + "/password with <password>"+e2.getPassword()+"</password>";
-        ejecutarUpdate(COLECCEMPLEADOS, updatePass);
-        String updateNombre = "update replace /Empleados/Empleado"
-                + "[username=\'"+e1.getUsername()+"']"
-                + "/nombre_completo with <nombre_completo>"+e2.getNombreCompleto()+"</nombre_completo>";
-        ejecutarUpdate(COLECCEMPLEADOS, updateNombre);
-        String updateTelefono = "update replace /Empleados/Empleado"
-                + "[username=\'"+e1.getUsername()+"']"
-                + "/telefono with <telefono>"+e2.getTelefono()+"</telefono>";
-        ejecutarUpdate(COLECCEMPLEADOS, updateTelefono);
-    }
-    
-    //Validar empleado
-    public void validarEmpleado (Empleado e){
-        //String consulta = "let"
-    }
-
-    //Consultar todas las incidencias para un empleado concreto
+    //5D. Consultar todas las incidencias para un empleado concreto (FUNCIONA) (CON SUBMÉTODO)
     public List<Incidencia> getAllIncidenciasParaEmpleado(Empleado e) throws XMLDBException{
-        String consulta = "for $i in //Incidencias/Incidencia return $i";
+        String consulta = "for $i in //Incidencias/Incidencia "
+                + "let $e := $i/destino "
+                + "where $e ='"+e.getUsername()+"' "
+                + "return $i";
+        ResourceSet resultado = ejecutarQuery(COLECCINCIDENCIAS, consulta);
+        ResourceIterator it = resultado.getIterator(); //Recorrer la consulta
+        List<Incidencia> todasLasIncidencias = new ArrayList<>();
+        while(it.hasMoreResources()){
+            XMLResource resource = (XMLResource) it.nextResource();
+            Node nodo = (Node) resource.getContentAsDOM(); //Tenemos que leer el resultado con DOM
+            NodeList barra = nodo.getChildNodes(); //Leemos la lista de los hijos
+            NodeList hijo = barra.item(0).getChildNodes(); //3 niveles(nodo/hijo) para leer la entidad
+            Incidencia i = leerDomIncidencia(hijo);
+            todasLasIncidencias.add(i);
+        }
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd-hh:mm:ss:SS"); //Indicamos como queremos que se muestre la fecha y hora
+        Date ahoramismo = new Date(); //Creamos un new Date para la fecha y hora actual
+        String fechaHoraenTexto = sdf.format(ahoramismo); //Creamos un string indicando al sdf que mofique el formato del dato
+        Historial h = new Historial("C", fechaHoraenTexto, e);
+        String insert = "update insert <historial>"
+                + "<tipo_evento>" + h.getTipoEvento()+ "</tipo_evento>"
+                + "<fecha_hora>" + h.getFechaHora() + "</fecha_hora>"
+                + "<username>" + h.getUsername().getUsername() + "</username>"
+                + "</historial> into /Historial";
+        ejecutarUpdate(COLECCHISTORIAL, insert);        
+        System.out.println("--Se ha insertado en el historial ESTA consulta de las Incidencias PARA el empleado '"+e.getUsername()+"'--");
+        return todasLasIncidencias;
+    }
+    
+    //5E. Obtener las incidencias creadas por un empleado concreto. (FUNCIONA)
+    public List<Incidencia> getAllIncidenciasByOrigen(Empleado e) throws XMLDBException{
+        String consulta = "for $i in //Incidencias/Incidencia "
+                + "let $e := $i/origen "
+                + "where $e ='"+e.getUsername()+"' "
+                + "return $i";
         ResourceSet resultado = ejecutarQuery(COLECCINCIDENCIAS, consulta);
         ResourceIterator it = resultado.getIterator(); //Recorrer la consulta
         List<Incidencia> todasLasIncidencias = new ArrayList<>();
@@ -108,8 +241,69 @@ public class IncidenciasXND {
         
     }
     
+    //6B. Obtener un listado de todos los inicios de sesión que ha habido. (FUNCIONA)
+    public List<Historial> getAllLogins() throws XMLDBException{
+        String consulta = "for $h in //Historial/historial "
+                + "let $inicio := $h/tipo_evento "
+                + "where $inicio ='I' "
+                + "return $h";
+        ResourceSet resultado = ejecutarQuery(COLECCHISTORIAL, consulta);
+        ResourceIterator it = resultado.getIterator(); //Recorrer la consulta
+        List<Historial> todosLosEventos = new ArrayList<>();
+        while(it.hasMoreResources()){
+            XMLResource resource = (XMLResource) it.nextResource();
+            Node nodo = (Node) resource.getContentAsDOM(); //Tenemos que leer el resultado con DOM
+            NodeList barra = nodo.getChildNodes(); //Leemos la lista de los hijos
+            NodeList hijo = barra.item(0).getChildNodes(); //3 niveles(nodo/hijo) para leer la entidad
+            Historial evento = leerDomHistorial(hijo);
+            todosLosEventos.add(evento);
+        }
+        return todosLosEventos;
+        
+    }
     
-    //Método auxiliar que lee los datos de un Libro
+    //6C. Obtener un listado de los empleados (nombre de usuario) que han consultado sus incidencias al menos una vez.
+//    public List<Historial> getEmpleadosLoginAtLeastOne(){
+//        String consulta = "for $h in //Historial/historial[count( "
+//                + ""
+//    }
+    
+    //6D. Obtener el número de incidencias que hay en la BBDD
+    public ResourceSet getNumeroIncidencias() throws XMLDBException{
+        String consulta = "for $i in count(//Incidencias/Incidencia) "
+                + "return $i";
+        ResourceSet resultado = ejecutarQuery(COLECCINCIDENCIAS, consulta);
+        return resultado;
+        
+    }    
+    
+
+    //Método auxiliar que lee los datos de un historial
+    private Historial leerDomHistorial(NodeList datos){
+        int contador = 1;
+        Historial h = new Historial();
+        for (int it = 0; it < datos.getLength(); it++){
+            Node ntemp = datos.item(it);
+            if(ntemp.getNodeType() == Node.ELEMENT_NODE){
+                if(contador==1){
+                    h.setTipoEvento(ntemp.getChildNodes().item(0).getNodeValue());
+                    contador ++;
+                } else if (contador == 2){
+                    h.setFechaHora(ntemp.getChildNodes().item(0).getNodeValue());
+                    contador ++;
+                } else if (contador == 3){
+                    Empleado e = new Empleado(ntemp.getChildNodes().item(0).getNodeValue());
+                    h.setUsername(e);
+                    contador ++;
+                }
+            }
+
+            
+        }
+        return h;        
+    }    
+    
+    //Método auxiliar que lee los datos de una incidencia
     private Incidencia leerDomIncidencia(NodeList datos){
         int contador = 1;
         Incidencia i = new Incidencia();

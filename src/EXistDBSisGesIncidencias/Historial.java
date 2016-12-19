@@ -15,6 +15,10 @@ public class Historial {
     private String fechaHora;
     private Empleado username;
 
+    public Historial(String tipoEvento) {
+        this.tipoEvento = tipoEvento;
+    }
+    
     public Historial() {
         tipoEvento = "";
         fechaHora = "";
