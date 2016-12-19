@@ -31,7 +31,7 @@ public class IncidenciasXND {
     private Database database;
     private final String URI = "xmldb:exist://localhost:8080/exist/xmlrpc"; //Ruta del servidor
     private final String USER = "admin";
-    private final String PASS = "samson180387";
+    private final String PASS = "admin";
     private final String COLECCEMPLEADOS = "/db/sis_ges_incidencias/empleados"; //Ruta de las colecciones
     private final String COLECCINCIDENCIAS = "/db/sis_ges_incidencias/incidencias";
     private final String COLECCHISTORIAL = "/db/sis_ges_incidencias/historial";
